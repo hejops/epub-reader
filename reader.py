@@ -58,9 +58,21 @@ IGNORED_CLASSES = {
 
 
 class Reader:
-    def __init__(self, file):
-        self.file = file
-        self.wide_spacing = False
+    def __init__(self, file: str):
+        self.file: str = file
+
+        self.xml_pos: int = 0
+        self.curr_xml_path: str = ""
+
+        self.line_pos: int = 0  # can be float, if restored from cache
+        self.xml_change: int = 0
+        self.xml_lines: list[str] = []
+
+        self.wide_spacing: bool = False
+        self.debug: bool = True
+
+    def __len__(self) -> int:
+        return len(self.xml_lines)
 
     @staticmethod
     def is_xml(f: str):
