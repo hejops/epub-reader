@@ -115,20 +115,33 @@ class Reader:
             "r",
             compression=zipfile.ZIP_DEFLATED,
             allowZip64=True,
-        ) as zf:
-            # pprint(zf.namelist())
-            xmls = [f for f in zf.namelist() if self.is_xml(f)]
-            for i, xml_path in enumerate(xmls):
-                xml_str = zf.read(xml_path)
-                xml_tree = BeautifulSoup(xml_str, features="xml")
+        )  # as zf:
+        # pprint(zf.namelist())
+        xmls = [f for f in self.zf.namelist() if self.is_xml(f)]
 
-                if xml_tree.div["class"] in IGNORED_CLASSES:
-                    continue
+        if self.curr_xml_path:
+            self.xml_pos = xmls.index(self.curr_xml_path)
+        else:
+            self.xml_pos = 0
 
-                self.display_xml_tree(xml_tree)
-                # print(xml_tree.div["class"])
-                break
-                input(f"Next ({i+2}) -> ")
+        # iterators in python -cannot- go backwards, so there is no point in
+        # using them
+
+        while 0 <= self.xml_pos < len(xmls):
+            self.curr_xml_path = xmls[self.xml_pos]
+            xml_str = self.zf.read(self.curr_xml_path)
+            xml_tree = BeautifulSoup(xml_str, features="xml")
+
+            # TODO: potentially means that any ignored xml between normal xmls
+            # will prevent backward iteration
+            if xml_tree.div["class"] in IGNORED_CLASSES:
+                self.xml_pos += 1
+                continue
+
+            self.display_xml_tree(xml_tree)
+
+        print("end")
+        # remove cache
 
 
 reader = Reader(sys.argv[1])
