@@ -56,57 +56,60 @@ IGNORED_CLASSES = {
 }
 
 
-def display_xml_tree(xml_tree: BeautifulSoup):
-    lines = [x.text for x in xml_tree.find_all("p")]
-    for line in lines:
-        line = " ".join(line.split("\n"))
-        print(
-            textwrap.fill(
-                # in an epub, lines are broken for you. we discard them and
-                # reflow to suit our terminal size
-                line,
-                # indent adds the left pad while maintaining width (essentially
-                # doubling the right pad); correct this by reclaiming from the
-                # right pad
-                WIDTH + HORIZ_PADDING,
-                initial_indent=" " * HORIZ_PADDING,
-                subsequent_indent=" " * HORIZ_PADDING,
+class Reader:
+    def __init__(self, file):
+        self.file = file
+
+    @staticmethod
+    def is_xml(f: str):
+        """Check if path looks like a document to be parsed. Does not check xml
+        contents."""
+        return f.startswith("O") and (f.endswith("ml") or f.endswith(".htm"))
+
+    def display_xml_tree(self, xml_tree: BeautifulSoup):
+        lines = [x.text for x in xml_tree.find_all("p")]
+        for line in lines:
+            line = " ".join(line.split("\n"))
+            print(
+                textwrap.fill(
+                    # in an epub, lines are broken for you. we discard them and
+                    # reflow to suit our terminal size
+                    line,
+                    # indent adds the left pad while maintaining width (essentially
+                    # doubling the right pad); correct this by reclaiming from the
+                    # right pad
+                    WIDTH + HORIZ_PADDING,
+                    initial_indent=" " * HORIZ_PADDING,
+                    subsequent_indent=" " * HORIZ_PADDING,
+                )
             )
-        )
-        print()
+            print()
+
+    def read(self):
+        # https://github.com/aerkalov/ebooklib/blob/1cb3d2c251f82c4702c2aff0ed7aea375babf251/ebooklib/epub.py#L1716C30-L1716C30
+        with zipfile.ZipFile(
+            self.file,
+            "r",
+            compression=zipfile.ZIP_DEFLATED,
+            allowZip64=True,
+        ) as zf:
+            # pprint(zf.namelist())
+            xmls = [f for f in zf.namelist() if self.is_xml(f)]
+            for i, xml_path in enumerate(xmls):
+                xml_str = zf.read(xml_path)
+                xml_tree = BeautifulSoup(xml_str, features="xml")
+
+                if xml_tree.div["class"] in IGNORED_CLASSES:
+                    continue
+
+                self.display_xml_tree(xml_tree)
+                # print(xml_tree.div["class"])
+                break
+                input(f"Next ({i+2}) -> ")
 
 
-def is_xml(f: str):
-    """Check if path looks like a document to be parsed. Does not check xml
-    contents."""
-    return f.startswith("O") and (f.endswith("ml") or f.endswith(".htm"))
-
-
-def read_epub(file: str):
-    # https://github.com/aerkalov/ebooklib/blob/1cb3d2c251f82c4702c2aff0ed7aea375babf251/ebooklib/epub.py#L1716C30-L1716C30
-    with zipfile.ZipFile(
-        file,
-        "r",
-        compression=zipfile.ZIP_DEFLATED,
-        allowZip64=True,
-    ) as zf:
-        # pprint(zf.namelist())
-        xmls = [f for f in zf.namelist() if is_xml(f)]
-        for i, xml_path in enumerate(xmls):
-            xml_str = zf.read(xml_path)
-            xml_tree = BeautifulSoup(xml_str, features="xml")
-
-            if xml_tree.div["class"] in IGNORED_CLASSES:
-                continue
-
-            display_xml_tree(xml_tree)
-            # print(xml_tree.div["class"])
-            break
-            input(f"Next ({i+2}) -> ")
-
-
-file = sys.argv[1]
-read_epub(file)
+reader = Reader(sys.argv[1])
+reader.read()
 
 # TODO:
 # argparse (user-defined padding)
