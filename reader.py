@@ -93,7 +93,45 @@ class Reader:
             WIDTH + HORIZ_PADDING,
             initial_indent=" " * HORIZ_PADDING,
             subsequent_indent=" " * HORIZ_PADDING,
-        )  # .strip("\n")
+        )
+
+    def restore_line_pos(self):
+        self.line_pos = int(self.line_pos * len(self))
+
+    def navigate(self, char: str):
+        match char:
+            case "n":
+                self.xml_change = 1
+            case "p":
+                self.xml_change = -1
+            case "g":
+                self.line_pos = 0
+            case "G":
+                self.line_pos = len(self) - HEIGHT
+            case "j":
+                self.line_pos = min(self.line_pos + 1, len(self) - HEIGHT)
+            case "k":
+                self.line_pos = max(self.line_pos - 1, 0)
+            case "J":
+                self.line_pos = min(self.line_pos + HEIGHT // 2, len(self) - HEIGHT)
+            case "K":
+                self.line_pos = max(self.line_pos - HEIGHT // 2, 0)
+            case "x":
+                self.zf.close()
+                # TODO: cache (file hash + xml file + position (fraction))
+                print(self.curr_xml_path, self.line_pos, len(self))
+                sys.exit()
+
+            # case _:
+            #     print(char)
+            #     raise ValueError
+
+    def display(self):
+        print("\n".join(self.xml_lines[self.line_pos : self.line_pos + HEIGHT]))
+        if self.debug:
+            print(self.file, self.line_pos, self.line_pos + HEIGHT)
+        else:
+            print()
 
     def display_xml_tree(self, xml_tree: BeautifulSoup):
         paragraphs = [x.text for x in xml_tree.find_all("p")]
