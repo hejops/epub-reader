@@ -3,7 +3,7 @@
 EPUB reader for the command line.
 
 Usage:
-    reader.py <file> | less
+    reader.py <file>
 
 References:
 
@@ -13,25 +13,25 @@ References:
     epy -- https://github.com/wustho/epy
 
 """
-import subprocess
+# import subprocess
+import os
 import sys
 import textwrap
 import zipfile
 
-import readchar
 from bs4 import BeautifulSoup
+from readchar import readchar
 
-# import xml.etree.ElementTree as ET
-# from pprint import pprint
-
-# FULL_WIDTH, FULL_HEIGHT = os.get_terminal_size()
+# os is simplest, but cannot be piped
+FULL_WIDTH, FULL_HEIGHT = os.get_terminal_size()
 
 # shutil allows piping output (e.g. to less), but just uses the fallback dims
 # FULL_WIDTH, FULL_HEIGHT = shutil.get_terminal_size()
 
-# https://stackoverflow.com/a/943921
-# only subprocess (or os.popen) can do this reliably
-FULL_HEIGHT, FULL_WIDTH = subprocess.check_output(["stty", "size"]).split()
+# # https://stackoverflow.com/a/943921
+# # only subprocess (or os.popen) can do this reliably
+# FULL_HEIGHT, FULL_WIDTH = subprocess.check_output(["stty", "size"]).split()
+
 FULL_HEIGHT = int(FULL_HEIGHT)
 FULL_WIDTH = int(FULL_WIDTH)
 
@@ -43,8 +43,11 @@ HORIZ_PADDING = 0.2
 HORIZ_PADDING = int(FULL_WIDTH * HORIZ_PADDING)
 WIDTH = FULL_WIDTH - 2 * HORIZ_PADDING
 
-VERT_PADDING = 0.1
-VERT_PADDING = int(FULL_HEIGHT * VERT_PADDING)
+# VERT_PADDING = 0.1
+# VERT_PADDING = int(FULL_HEIGHT * VERT_PADDING)
+# HEIGHT = FULL_HEIGHT - 2 * VERT_PADDING
+
+VERT_PADDING = 1
 HEIGHT = FULL_HEIGHT - 2 * VERT_PADDING
 
 IGNORED_CLASSES = {
@@ -81,7 +84,7 @@ class Reader:
         return f.startswith("O") and (f.endswith("ml") or f.endswith(".htm"))
 
     @staticmethod
-    def format_para(para):
+    def format_para(para) -> str:
         para = " ".join(para.split("\n"))
         return textwrap.fill(
             # in an epub, lines are broken for you. we discard them and reflow
@@ -134,21 +137,36 @@ class Reader:
             print()
 
     def display_xml_tree(self, xml_tree: BeautifulSoup):
-        paragraphs = [x.text for x in xml_tree.find_all("p")]
-        lines: list[str] = []
+        """Extract the complete text content of an xml file, format as a single
+        reflowed string, then divide into lines to be scrolled."""
+        paragraphs: list[str] = [x.text for x in xml_tree.find_all("p")]
+        self.xml_lines = [""] * VERT_PADDING
         for para in paragraphs:
             # split -again-, because we want to be able to scroll
-            lines += self.format_para(para).split("\n")
+            self.xml_lines += self.format_para(para).split("\n")
             if self.wide_spacing:
-                lines += ["\n"]
+                self.xml_lines += ["\n"]
             else:
-                lines += [""]
-        print("\n".join(lines[:HEIGHT]))
-        print()
+                self.xml_lines += [""]
+
+        # restore line_pos from fraction; can only be done after xml_lines is
+        # prepared
+        if isinstance(self.line_pos, float):
+            self.restore_line_pos()
+
+        self.display()
+        while self.xml_change == 0:
+            char = readchar()
+            self.navigate(char)
+            self.display()
+        self.line_pos = 0
+        self.xml_pos += self.xml_change
+        self.xml_change = 0
 
     def read(self):
         # https://github.com/aerkalov/ebooklib/blob/1cb3d2c251f82c4702c2aff0ed7aea375babf251/ebooklib/epub.py#L1716C30-L1716C30
-        with zipfile.ZipFile(
+        os.system("clear")
+        self.zf = zipfile.ZipFile(
             self.file,
             "r",
             compression=zipfile.ZIP_DEFLATED,
@@ -187,6 +205,4 @@ reader.read()
 
 # TODO:
 # argparse (user-defined padding)
-# keybinds (potentially curses)
-# cache (by file hash + xml file + position (fraction))
-# link navigation
+# link navigation (out of scope?)
