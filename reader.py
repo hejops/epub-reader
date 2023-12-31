@@ -18,6 +18,7 @@ import sys
 import textwrap
 import zipfile
 
+import readchar
 from bs4 import BeautifulSoup
 
 # import xml.etree.ElementTree as ET
@@ -42,9 +43,9 @@ HORIZ_PADDING = 0.2
 HORIZ_PADDING = int(FULL_WIDTH * HORIZ_PADDING)
 WIDTH = FULL_WIDTH - 2 * HORIZ_PADDING
 
-# VERT_PADDING = HORIZ_PADDING
-# VERT_PADDING = int(FULL_HEIGHT * VERT_PADDING)
-# HEIGHT = FULL_HEIGHT - 2 * VERT_PADDING
+VERT_PADDING = 0.1
+VERT_PADDING = int(FULL_HEIGHT * VERT_PADDING)
+HEIGHT = FULL_HEIGHT - 2 * VERT_PADDING
 
 IGNORED_CLASSES = {
     "preface",
@@ -66,24 +67,31 @@ class Reader:
         contents."""
         return f.startswith("O") and (f.endswith("ml") or f.endswith(".htm"))
 
+    @staticmethod
+    def format_para(para):
+        para = " ".join(para.split("\n"))
+        return textwrap.fill(
+            # in an epub, lines are broken for you. we discard them and reflow
+            # to suit our terminal size
+            para,
+            # indent adds the left pad while maintaining width (essentially
+            # doubling the right pad); correct this by reclaiming from the
+            # right pad
+            WIDTH + HORIZ_PADDING,
+            initial_indent=" " * HORIZ_PADDING,
+            subsequent_indent=" " * HORIZ_PADDING,
+        )  # .strip("\n")
+
     def display_xml_tree(self, xml_tree: BeautifulSoup):
-        lines = [x.text for x in xml_tree.find_all("p")]
-        for line in lines:
-            line = " ".join(line.split("\n"))
-            print(
-                textwrap.fill(
-                    # in an epub, lines are broken for you. we discard them and
-                    # reflow to suit our terminal size
-                    line,
-                    # indent adds the left pad while maintaining width (essentially
-                    # doubling the right pad); correct this by reclaiming from the
-                    # right pad
-                    WIDTH + HORIZ_PADDING,
-                    initial_indent=" " * HORIZ_PADDING,
-                    subsequent_indent=" " * HORIZ_PADDING,
-                )
-            )
-            print()
+        paragraphs = [x.text for x in xml_tree.find_all("p")]
+        lines: list[str] = []
+        for para in paragraphs:
+            # split -again-, because we want to be able to scroll
+            lines += self.format_para(para).split("\n")
+            lines += [""]
+            # lines += ["\n"] # if you want 2 lines between paras
+        print("\n".join(lines[:HEIGHT]))
+        print()
 
     def read(self):
         # https://github.com/aerkalov/ebooklib/blob/1cb3d2c251f82c4702c2aff0ed7aea375babf251/ebooklib/epub.py#L1716C30-L1716C30
