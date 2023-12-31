@@ -60,6 +60,7 @@ IGNORED_CLASSES = {
 class Reader:
     def __init__(self, file):
         self.file = file
+        self.wide_spacing = False
 
     @staticmethod
     def is_xml(f: str):
@@ -88,8 +89,10 @@ class Reader:
         for para in paragraphs:
             # split -again-, because we want to be able to scroll
             lines += self.format_para(para).split("\n")
-            lines += [""]
-            # lines += ["\n"] # if you want 2 lines between paras
+            if self.wide_spacing:
+                lines += ["\n"]
+            else:
+                lines += [""]
         print("\n".join(lines[:HEIGHT]))
         print()
 
