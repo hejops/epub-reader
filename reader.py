@@ -89,11 +89,11 @@ class Reader:
         return textwrap.fill(
             # in an epub, lines are broken for you. we discard them and reflow
             # to suit our terminal size
-            para,
+            text=para,
             # indent adds the left pad while maintaining width (essentially
             # doubling the right pad); correct this by reclaiming from the
             # right pad
-            WIDTH + HORIZ_PADDING,
+            width=WIDTH + HORIZ_PADDING,
             initial_indent=" " * HORIZ_PADDING,
             subsequent_indent=" " * HORIZ_PADDING,
         )
@@ -136,7 +136,10 @@ class Reader:
         else:
             print()
 
-    def display_xml_tree(self, xml_tree: BeautifulSoup):
+    def display_xml_tree(
+        self,
+        xml_tree: BeautifulSoup,
+    ):
         """Extract the complete text content of an xml file, format as a single
         reflowed string, then divide into lines to be scrolled."""
         paragraphs: list[str] = [x.text for x in xml_tree.find_all("p")]
@@ -172,7 +175,6 @@ class Reader:
             compression=zipfile.ZIP_DEFLATED,
             allowZip64=True,
         )  # as zf:
-        # pprint(zf.namelist())
         xmls = [f for f in self.zf.namelist() if self.is_xml(f)]
 
         if self.curr_xml_path:
@@ -190,7 +192,11 @@ class Reader:
 
             # TODO: potentially means that any ignored xml between normal xmls
             # will prevent backward iteration
-            if xml_tree.div["class"] in IGNORED_CLASSES:
+            if (
+                hasattr(xml_tree, "div")
+                and xml_tree.div.get("class") in IGNORED_CLASSES
+                or not xml_tree.find_all("p")
+            ):
                 self.xml_pos += 1
                 continue
 
